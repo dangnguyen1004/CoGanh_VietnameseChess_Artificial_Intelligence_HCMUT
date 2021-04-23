@@ -8,3 +8,5 @@ We play game in 5x5 board at this version
 
 ## Goal
 Using minimax algorithm to play against other player
+
+## Implementation
