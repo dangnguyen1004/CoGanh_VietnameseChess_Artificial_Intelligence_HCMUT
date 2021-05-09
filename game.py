@@ -1,5 +1,6 @@
 import pygame
 import math
+from copy import deepcopy
 
 
 # =================== Setting size of game ==============
@@ -75,7 +76,7 @@ class Board:
         self.board = []
         self.redLeft = 8
         self.blueLeft = 8
-
+        self.ore = 0
         self.createBoard()
 
     def createBoard(self):
@@ -147,6 +148,16 @@ class Board:
 
         return moves
 
+    def evalation(self):
+        return self.redLeft - self.blueLeft
+
+    def getAllPieces(self, color):
+        pieces = []
+        for row in self.board:
+            for piece in row:
+                if piece != 0 and piece.color == color:
+                    pieces.append(piece)
+        return pieces
 
 
     def drawGridLine(self):
@@ -176,6 +187,17 @@ class Game:
         self.selected = None
         self.turn = BLUE
         self.validMoves = []
+        self.winner = None
+
+    def findWinner(self):
+        if self.board.blueLeft <= 0:
+            self.winner = RED
+            return True
+        elif self.board.redLeft <= 0:
+            self.winner = BLUE
+            return True
+        else: 
+            return False
 
     def __init__(self):
         self._init()
@@ -209,7 +231,7 @@ class Game:
                 self.selected.selected = False
                 self.selected = None
                 self.validMoves = []
-                self.checkSkip(row, col)                
+                self.checkSkip(self.board, row, col)                
                 self.changeTurn()
                 return
             elif piece != 0:
@@ -230,60 +252,108 @@ class Game:
             else:
                 return
             
-    def checkSkip(self, row, col):
+    def checkSkip(self, board, row, col):
         opponent = RED if self.turn == BLUE else BLUE
 
+        # ============== check horizontal skip ================
         if col - 1 >= 0 and col + 1 < COLS:
-            leftPiece = self.board.getPiece(row, col - 1)
-            rightPiece = self.board.getPiece(row, col + 1)
+            leftPiece = board.getPiece(row, col - 1)
+            rightPiece = board.getPiece(row, col + 1)
             # ====== Nuoc di ganh ===========
             if leftPiece != 0 and rightPiece != 0 and leftPiece.color == rightPiece.color == opponent:
-                self.skip(leftPiece)
-                self.skip(rightPiece)
+                self.skip(board, leftPiece)
+                self.skip(board, rightPiece)
             # ======== Nuoc di vay ===========
 
-                
+
+        # =============== check vertical skip ==================
         if row - 1 >= 0 and row + 1 < ROWS:
-            topPiece = self.board.getPiece(row - 1, col)
-            botPiece = self.board.getPiece(row + 1, col)
+            topPiece = board.getPiece(row - 1, col)
+            botPiece = board.getPiece(row + 1, col)
             # ====== Nuoc di ganh ===========
             if topPiece != 0 and botPiece != 0 and topPiece.color == botPiece.color == opponent:
-                self.skip(topPiece)
-                self.skip(botPiece)
+                self.skip(board, topPiece)
+                self.skip(board, botPiece)
             # ======== Nuoc di vay ===========
 
-
         if (row, col) not in CASEOF4:
+            # ============== Check left diagonal skip =================
             if row - 1 >= 0 and col - 1 >= 0 and row + 1 < ROWS and col + 1 < COLS:
-                topLeftPiece = self.board.getPiece(row - 1, col -1)
-                botRightPiece = self.board.getPiece(row + 1, col + 1)
+                topLeftPiece = board.getPiece(row - 1, col -1)
+                botRightPiece = board.getPiece(row + 1, col + 1)
                 # ====== Nuoc di ganh ===========
                 if topLeftPiece != 0 and botRightPiece != 0 and topLeftPiece.color == botRightPiece.color == opponent:
-                    self.skip(topLeftPiece)
-                    self.skip(botRightPiece)
+                    self.skip(board, topLeftPiece)
+                    self.skip(board, botRightPiece)
                 # ======== Nuoc di vay ===========
    
-                
+            # ============== Check right diagonal skip =================
             if row - 1 >= 0 and col + 1 < COLS and row + 1 < ROWS and col - 1 >= 0:
-                topRightPiece = self.board.getPiece(row - 1, col + 1)
-                botLeftPiece = self.board.getPiece(row + 1, col - 1)
+                topRightPiece = board.getPiece(row - 1, col + 1)
+                botLeftPiece = board.getPiece(row + 1, col - 1)
                 # ====== Nuoc di ganh ===========
                 if topRightPiece != 0 and botLeftPiece != 0 and topRightPiece.color == botLeftPiece.color == opponent:
-                    self.skip(topRightPiece)
-                    self.skip(botLeftPiece)
+                    self.skip(board, topRightPiece)
+                    self.skip(board, botLeftPiece)
                 # ======== Nuoc di vay ===========
 
                 
-    def skip(self, piece):
+    def skip(self, board, piece):
         if piece.color == RED:
-            self.board.redLeft -= 1
+            board.redLeft -= 1
         else:
-            self.board.blueLeft -= 1
+            board.blueLeft -= 1
         piece.changeColor()
+
+    def moveOfAI(self, board):
+        self.board = board
+        self.changeTurn()
+
+
         
         
 
+def minimax(currentBoard, depth, maxPlayer, game):
+    if depth == 0 or game.findWinner():
+        return currentBoard.evalation(), currentBoard
 
+    if maxPlayer:
+        maxEval = float('-inf')
+        bestMove = None
+        for move in getAllMoveOfBoard(currentBoard, RED, game):
+            evaluation = minimax(move, depth - 1, False, game)[0]
+            maxEval = max(maxEval, evaluation)
+            if maxEval == evaluation:
+                bestMove = move
+        return maxEval, bestMove
+    else:
+        minEval = float('inf')
+        bestMove = None        
+        for move in getAllMoveOfBoard(currentBoard, BLUE, game):
+            evaluation = minimax(move, depth - 1, True, game)[0]
+            minEval = min(minEval, evaluation)
+            if minEval == evaluation:
+                bestMove = move
+        return minEval, bestMove
+
+
+def getAllMoveOfBoard(board, color, game):
+    moves = []
+
+    for piece in board.getAllPieces(color):
+        validMoves = board.getValidMoves(piece)
+        for move in validMoves:
+            tempBoard = deepcopy(board)
+            tempPiece = tempBoard.getPiece(piece.row, piece.col)
+            newBoard = simulateMove(tempPiece, move, tempBoard, game)
+            moves.append(newBoard)
+
+    return moves
+
+def simulateMove(piece, move, board, game):
+    board.move(piece, move[0], move[1])
+    game.checkSkip(board, move[0], move[1])
+    return board
 
 def getRowColFromMouse(pos):
     x, y = pos
@@ -300,8 +370,15 @@ def main():
     while run:
         clock.tick(FPS)
 
-        #======================  For debug ===================================== 
 
+
+        if game.findWinner():
+            run = False
+        
+        #============== AI turn ====================
+        if game.turn == RED:
+            evaluation, bestMove = minimax(game.board, 3, True, game)
+            game.moveOfAI(bestMove)        
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
